@@ -25,7 +25,10 @@ env -u WAYLAND_DISPLAY -u DISPLAY -u WAYLAND_SOCKET \
     XDG_RUNTIME_DIR="$RT" WLR_BACKENDS=headless WLR_LIBINPUT_NO_DEVICES=1 WLR_RENDERER_ALLOW_SOFTWARE=1 \
     "$SWAY" --unsupported-gpu -c "$CFG" >"$RT/sway.log" 2>&1 &
 SWAY_PID=$!
-trap 'kill "$SWAY_PID" 2>/dev/null; sleep 0.3; kill -9 "$SWAY_PID" 2>/dev/null; rm -rf "$RT"' EXIT
+# `|| true` on the kills: if sway already exited from the SIGTERM, `kill -9` of the
+# dead PID returns non-zero, which under `set -e` would abort the trap (skipping
+# rm) and surface as a spurious exit 1 even when verification succeeded.
+trap 'kill "$SWAY_PID" 2>/dev/null || true; sleep 0.3; kill -9 "$SWAY_PID" 2>/dev/null || true; rm -rf "$RT"' EXIT
 
 SOCK=""
 i=0; while [ $i -lt 60 ]; do
