@@ -1,8 +1,10 @@
 #!/bin/sh
 # Run the assembled bundle's sway headless on the HOST and assert it advertises
 # the wlroots-class protocols a modern compositor should (wlr globals + the
-# ext-image-copy-capture stack + a dmabuf/EGL path). Self-contained: needs only
-# `wayland-info` (apt install wayland-utils); skipped with a warning if absent.
+# ext-image-copy-capture stack). The dmabuf/EGL path is checked too but only
+# warned on: it depends on a GPU/render node and is absent under pure software
+# rendering (CI). Self-contained: needs only `wayland-info` (apt install
+# wayland-utils); skipped with a warning if absent.
 set -eu
 cd "$(dirname "$0")"
 SWAY="$PWD/out/bin/sway"
@@ -36,16 +38,28 @@ sleep 2
 
 INFO=$(env -u DISPLAY XDG_RUNTIME_DIR="$RT" WAYLAND_DISPLAY="$SOCK" wayland-info 2>/dev/null || true)
 
+# Required globals — the wlr/ext protocols glass drives. These do not depend on a GPU.
 fail=0
 for g in zwlr_screencopy_manager_v1 zwlr_virtual_pointer_manager_v1 \
          zwp_virtual_keyboard_manager_v1 zwlr_foreign_toplevel_manager_v1 \
-         ext_image_copy_capture_manager_v1 ext_foreign_toplevel_image_capture_source_manager_v1 \
-         zwp_linux_dmabuf_v1; do
+         ext_image_copy_capture_manager_v1 ext_foreign_toplevel_image_capture_source_manager_v1; do
     if echo "$INFO" | grep -q "$g"; then
         echo "  ok   $g"
     else
         echo "  MISS $g"; fail=1
     fi
 done
+
+# Optional: dmabuf/EGL path. Present with a GPU/render node, absent under pure
+# software rendering (llvmpipe, no /dev/dri) as on a GPU-less CI runner. glass
+# captures to shm, so this is informational — warn, don't fail.
+for g in zwp_linux_dmabuf_v1; do
+    if echo "$INFO" | grep -q "$g"; then
+        echo "  ok   $g (optional)"
+    else
+        echo "  warn $g absent (no GPU/render node — software rendering)"
+    fi
+done
+
 [ "$fail" -eq 0 ] || { echo "FAIL: bundle missing required globals"; exit 1; }
-echo "VERIFY OK: bundle advertises the expected globals + EGL/dmabuf path"
+echo "VERIFY OK: bundle advertises the required wlr/ext globals"
