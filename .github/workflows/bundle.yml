@@ -22,11 +22,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # verify.sh runs the assembled bundle headless on the runner: it needs
-      # software GL (the bundle resolves Mesa/GL/libdrm from the host) and
-      # wayland-info. Without them verify.sh skips; with them it actually checks.
+      # verify.sh runs the assembled bundle headless on the runner. The bundle
+      # resolves the Mesa/GL/EGL/gbm/drm stack from the HOST (by design), so install
+      # the GLVND loaders + Mesa software EGL/DRI (not just libgl1-mesa-dri), plus
+      # wayland-info so verify.sh actually checks instead of skipping.
       - name: Install verify deps
-        run: sudo apt-get update && sudo apt-get install -y libgl1-mesa-dri wayland-utils
+        run: |
+          sudo apt-get update && sudo apt-get install -y \
+            libegl1 libgl1 libgles2 libgbm1 libdrm2 libegl-mesa0 libgl1-mesa-dri wayland-utils
       - name: Build + verify bundle (Docker)
         run: ./build.sh
       - name: Package bundle
@@ -39,7 +42,8 @@ jobs:
           body: >-
             Prebuilt portable sway bundle (the out/ tree from build.sh) for glass's
             Wayland backend and CI. Extract into ~/.local/share/glass/sway; the host
-            must provide Mesa/GL (e.g. libgl1-mesa-dri). Rebuilt from the tip of
-            master — see the run log for the source commit.
+            must provide the Mesa/GL/EGL stack (e.g. libegl1 libgles2 libgbm1
+            libegl-mesa0 libgl1-mesa-dri). Rebuilt from the tip of master — see the
+            run log for the source commit.
           files: sway-bundle-linux-x86_64.tar.gz
           fail_on_unmatched_files: true
