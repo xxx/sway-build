@@ -1,0 +1,45 @@
+name: bundle
+
+# Build the portable sway bundle and publish it as the moving "bundle-latest"
+# release, so downstream CI (glass's Wayland job) can download a prebuilt bundle
+# instead of building sway from source on every run. Re-runs when the build
+# inputs change, or on manual dispatch.
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - Dockerfile
+      - '*.sh'
+      - .github/workflows/bundle.yml
+
+permissions:
+  contents: write
+
+jobs:
+  bundle:
+    name: build + publish sway bundle
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # verify.sh runs the assembled bundle headless on the runner: it needs
+      # software GL (the bundle resolves Mesa/GL/libdrm from the host) and
+      # wayland-info. Without them verify.sh skips; with them it actually checks.
+      - name: Install verify deps
+        run: sudo apt-get update && sudo apt-get install -y libgl1-mesa-dri wayland-utils
+      - name: Build + verify bundle (Docker)
+        run: ./build.sh
+      - name: Package bundle
+        run: tar -C out -czf sway-bundle-linux-x86_64.tar.gz .
+      - name: Publish bundle-latest release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: bundle-latest
+          name: sway bundle (latest)
+          body: >-
+            Prebuilt portable sway bundle (the out/ tree from build.sh) for glass's
+            Wayland backend and CI. Extract into ~/.local/share/glass/sway; the host
+            must provide Mesa/GL (e.g. libgl1-mesa-dri). Rebuilt from the tip of
+            master — see the run log for the source commit.
+          files: sway-bundle-linux-x86_64.tar.gz
+          fail_on_unmatched_files: true
