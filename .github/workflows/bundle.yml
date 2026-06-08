@@ -21,7 +21,7 @@ jobs:
     name: build + publish sway bundle
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       # verify.sh runs the assembled bundle headless on the runner. The bundle
       # resolves the Mesa/GL/EGL/gbm/drm stack from the HOST (by design), so install
       # the GLVND loaders + Mesa software EGL/DRI (not just libgl1-mesa-dri), plus
@@ -35,7 +35,7 @@ jobs:
       - name: Package bundle
         run: tar -C out -czf sway-bundle-linux-x86_64.tar.gz .
       - name: Publish bundle-latest release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: bundle-latest
           name: sway bundle (latest)
